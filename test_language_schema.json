@@ -1,0 +1,362 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SAM ERP - Messaggio di collaudo v1.0",
+  "description": "Schema dei messaggi applicativi. I file sono trasferiti separatamente; i metadati di upload sono definiti in $defs/artifactUploadMetadata.",
+  "allOf": [
+    { "$ref": "#/$defs/envelope" },
+    {
+      "oneOf": [
+        {
+          "properties": {
+            "origin": { "const": "client" },
+            "type": { "const": "test.start" },
+            "payload": { "$ref": "#/$defs/start" }
+          }
+        },
+        {
+          "properties": {
+            "origin": { "const": "worker" },
+            "type": { "const": "command.ack" },
+            "payload": { "$ref": "#/$defs/commandAck" }
+          }
+        },
+        {
+          "properties": {
+            "origin": { "const": "worker" },
+            "type": { "const": "step.event" },
+            "payload": { "$ref": "#/$defs/stepEvent" }
+          }
+        },
+        {
+          "properties": {
+            "origin": { "const": "worker" },
+            "type": { "const": "worker.notice" },
+            "payload": { "$ref": "#/$defs/workerNotice" }
+          }
+        },
+        {
+          "properties": {
+            "origin": { "const": "client" },
+            "type": { "const": "user.reply" },
+            "payload": { "$ref": "#/$defs/userReply" }
+          }
+        },
+        {
+          "properties": {
+            "origin": { "const": "worker" },
+            "type": { "const": "test.activities_completed" },
+            "payload": { "$ref": "#/$defs/activitiesCompleted" }
+          }
+        },
+        {
+          "properties": {
+            "origin": { "const": "client" },
+            "type": { "const": "test.close_requested" },
+            "payload": { "$ref": "#/$defs/closeRequested" }
+          }
+        },
+        {
+          "properties": {
+            "origin": { "const": "worker" },
+            "type": { "const": "test.closed" },
+            "payload": { "$ref": "#/$defs/closed" }
+          }
+        },
+        {
+          "properties": {
+            "origin": { "const": "client" },
+            "type": { "const": "test.interrupt_requested" },
+            "payload": { "$ref": "#/$defs/interruptRequested" }
+          }
+        },
+        {
+          "properties": {
+            "origin": { "const": "worker" },
+            "type": { "const": "test.interrupted" },
+            "payload": { "$ref": "#/$defs/interrupted" }
+          }
+        }
+      ]
+    }
+  ],
+  "$defs": {
+    "envelope": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "messageId",
+        "sessionId",
+        "userId",
+        "vmId",
+        "origin",
+        "type",
+        "occurredAt",
+        "payload"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "messageId": { "type": "string", "format": "uuid" },
+        "sessionId": { "type": "string", "format": "uuid" },
+        "userId": { "type": "string", "minLength": 1 },
+        "vmId": { "type": "string", "minLength": 1 },
+        "origin": { "enum": ["client", "worker"] },
+        "type": {
+          "enum": [
+            "test.start",
+            "command.ack",
+            "step.event",
+            "worker.notice",
+            "user.reply",
+            "test.activities_completed",
+            "test.close_requested",
+            "test.closed",
+            "test.interrupt_requested",
+            "test.interrupted"
+          ]
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "inReplyTo": { "type": "string", "format": "uuid" },
+        "serverSequence": { "type": "integer", "minimum": 1 },
+        "payload": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
+    "artifactIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "format": "uuid" }
+    },
+    "start": {
+      "type": "object",
+      "required": ["plan", "samLogin"],
+      "properties": {
+        "plan": {
+          "type": "object",
+          "required": ["description"],
+          "properties": {
+            "description": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
+        "samLogin": {
+          "type": "object",
+          "required": ["userName", "password"],
+          "properties": {
+            "userName": { "type": "string", "minLength": 1 },
+            "password": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "commandAck": {
+      "type": "object",
+      "required": ["acknowledgedMessageId", "status"],
+      "properties": {
+        "acknowledgedMessageId": { "type": "string", "format": "uuid" },
+        "status": { "enum": ["accepted", "rejected"] },
+        "reason": { "type": "string", "minLength": 1 }
+      },
+      "if": {
+        "properties": { "status": { "const": "rejected" } },
+        "required": ["status"]
+      },
+      "then": { "required": ["reason"] },
+      "additionalProperties": false
+    },
+    "stepEvent": {
+      "type": "object",
+      "required": ["stepId", "status", "description"],
+      "properties": {
+        "stepId": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["started", "completed", "failed", "skipped"] },
+        "description": { "type": "string", "minLength": 1 },
+        "observations": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "logs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["level", "text"],
+            "properties": {
+              "level": { "enum": ["info", "warning", "error"] },
+              "text": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "artifactIds": { "$ref": "#/$defs/artifactIds" }
+      },
+      "additionalProperties": false
+    },
+    "workerNotice": {
+      "type": "object",
+      "required": ["severity", "text", "requiresResponse"],
+      "properties": {
+        "severity": { "enum": ["info", "warning", "error", "blocked"] },
+        "text": { "type": "string", "minLength": 1 },
+        "requiresResponse": { "type": "boolean" },
+        "requestId": { "type": "string", "format": "uuid" },
+        "question": { "type": "string", "minLength": 1 },
+        "stepId": { "type": "string", "minLength": 1 },
+        "artifactIds": { "$ref": "#/$defs/artifactIds" }
+      },
+      "if": {
+        "properties": { "requiresResponse": { "const": true } },
+        "required": ["requiresResponse"]
+      },
+      "then": { "required": ["requestId", "question"] },
+      "additionalProperties": false
+    },
+    "userReply": {
+      "type": "object",
+      "required": ["kind", "text"],
+      "properties": {
+        "kind": { "enum": ["clarification", "instruction", "extension"] },
+        "text": { "type": "string", "minLength": 1 },
+        "requestId": { "type": "string", "format": "uuid" },
+        "manualActions": { "type": "string" },
+        "resultingSituation": { "type": "string" }
+      },
+      "if": {
+        "properties": { "kind": { "const": "clarification" } },
+        "required": ["kind"]
+      },
+      "then": { "required": ["requestId"] },
+      "additionalProperties": false
+    },
+    "activitiesCompleted": {
+      "type": "object",
+      "required": ["completionNumber", "outcome", "summary"],
+      "properties": {
+        "completionNumber": { "type": "integer", "minimum": 1 },
+        "outcome": { "enum": ["passed", "partial", "failed"] },
+        "summary": { "type": "string", "minLength": 1 },
+        "artifactIds": { "$ref": "#/$defs/artifactIds" }
+      },
+      "additionalProperties": false
+    },
+    "closeRequested": {
+      "type": "object",
+      "required": ["confirmedByUser"],
+      "properties": {
+        "confirmedByUser": { "const": true },
+        "note": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "closed": {
+      "type": "object",
+      "required": ["samLogoutCompleted", "uploadsCompleted", "manualInterventionRequired", "summary"],
+      "properties": {
+        "samLogoutCompleted": { "type": "boolean" },
+        "uploadsCompleted": { "type": "boolean" },
+        "manualInterventionRequired": { "type": "boolean" },
+        "missingEvidence": { "type": "array", "items": { "type": "string" } },
+        "summary": { "type": "string", "minLength": 1 }
+      },
+      "if": {
+        "anyOf": [
+          { "properties": { "samLogoutCompleted": { "const": false } }, "required": ["samLogoutCompleted"] },
+          { "properties": { "uploadsCompleted": { "const": false } }, "required": ["uploadsCompleted"] }
+        ]
+      },
+      "then": { "properties": { "manualInterventionRequired": { "const": true } } },
+      "additionalProperties": false
+    },
+    "interruptRequested": {
+      "type": "object",
+      "properties": {
+        "reason": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "interrupted": {
+      "type": "object",
+      "required": [
+        "summary",
+        "samLogoutCompleted",
+        "uploadsCompleted",
+        "manualInterventionRequired",
+        "samSituation"
+      ],
+      "properties": {
+        "summary": { "type": "string", "minLength": 1 },
+        "samLogoutCompleted": { "type": "boolean" },
+        "uploadsCompleted": { "type": "boolean" },
+        "manualInterventionRequired": { "type": "boolean" },
+        "samSituation": { "type": "string", "minLength": 1 },
+        "artifactIds": { "$ref": "#/$defs/artifactIds" }
+      },
+      "additionalProperties": false
+    },
+    "artifactUploadMetadata": {
+      "description": "Metadati JSON che accompagnano il contenuto binario del file nell'upload separato.",
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "sessionId",
+        "userId",
+        "vmId",
+        "eventMessageId",
+        "fileName",
+        "contentType",
+        "category",
+        "sizeBytes",
+        "sha256"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "sessionId": { "type": "string", "format": "uuid" },
+        "userId": { "type": "string", "minLength": 1 },
+        "vmId": { "type": "string", "minLength": 1 },
+        "eventMessageId": { "type": "string", "format": "uuid" },
+        "stepId": { "type": "string", "minLength": 1 },
+        "fileName": { "type": "string", "minLength": 1 },
+        "contentType": { "type": "string", "minLength": 1 },
+        "category": { "enum": ["screenshot", "document", "export", "other"] },
+        "sizeBytes": { "type": "integer", "minimum": 0 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "artifactUploadReceipt": {
+      "description": "Risposta JSON del server alla ricezione di un file binario.",
+      "type": "object",
+      "required": ["sessionId", "artifactId"],
+      "properties": {
+        "sessionId": { "type": "string", "format": "uuid" },
+        "artifactId": { "type": "string", "format": "uuid" }
+      },
+      "additionalProperties": false
+    },
+    "transportReceipt": {
+      "description": "Risposta HTTP JSON alla registrazione di un messaggio; non è un evento del collaudo.",
+      "type": "object",
+      "required": [
+        "sessionId",
+        "userId",
+        "vmId",
+        "acknowledgedMessageId",
+        "status",
+        "serverSequence"
+      ],
+      "properties": {
+        "sessionId": { "type": "string", "format": "uuid" },
+        "userId": { "type": "string", "minLength": 1 },
+        "vmId": { "type": "string", "minLength": 1 },
+        "acknowledgedMessageId": { "type": "string", "format": "uuid" },
+        "status": { "enum": ["stored", "duplicate"] },
+        "serverSequence": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    }
+  }
+}
